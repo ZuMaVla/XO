@@ -11,6 +11,12 @@ import android.view.View;
 import android.widget.Button;
 import androidx.core.content.ContextCompat;
 import android.widget.Toast;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import android.util.Log;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+
 
 public class MainActivity extends AppCompatActivity {
     String mySign;
@@ -19,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
 
     String[][] board = new String[3][3];
 
-
+    private MqttClient mqttClient;
 
     public void controlButtons(Boolean state) {
         for (Button[] buttonz : buttons) {
@@ -27,6 +33,71 @@ public class MainActivity extends AppCompatActivity {
                 button.setEnabled(state);  // Enable the button
             }
         }
+    }
+
+    public void showButtons(Boolean state) {
+        Button adHocButton = findViewById(R.id.button);
+        adHocButton.setVisibility(state ? View.VISIBLE : View.INVISIBLE);
+
+        for (Button[] buttonz : buttons) {
+            for (Button button : buttonz) {
+                button.setVisibility(state ? View.VISIBLE : View.INVISIBLE);
+            }
+        }
+    }
+
+    private void connectToMqttBroker() {
+        try {
+            if (mqttClient == null) {
+                // Create a new client if it doesn't exist already
+                mqttClient = new MqttClient("tcp://broker.hivemq.com:1883", MqttClient.generateClientId(), null);
+            }
+
+
+            if (!mqttClient.isConnected()) {        // Connect only if not already connected
+                MqttConnectOptions options = new MqttConnectOptions();
+                options.setCleanSession(true);
+                mqttClient.connect(options);
+                Log.d("MQTT", "Reconnected to broker");
+            } else {
+                Log.d("MQTT", "Already connected to the broker");
+            }
+
+            // Subscribe to a topic
+            mqttClient.subscribe("test/topic", 0, (topic, message) -> {
+                Log.d("MQTT", "Message received: " + new String(message.getPayload()));
+            });
+        } catch (MqttException e) {
+            e.printStackTrace();
+            Log.e("MQTT", "Error while connecting or subscribing");
+        }
+    }
+
+
+
+    public void disconnectFromMqttBroker() {
+        if (mqttClient != null && mqttClient.isConnected()) {
+            try {
+                // Disconnect from the broker
+                mqttClient.disconnect();
+                Log.d("MQTT", "Disconnected from the broker");
+
+                // Optionally, close the client
+                mqttClient.close();
+                Log.d("MQTT", "MQTT client closed");
+
+            } catch (MqttException e) {
+                Log.e("MQTT", "Error while disconnecting: " + e.getMessage());
+            }
+        } else {
+            Log.d("MQTT", "MQTT client is already disconnected or not initialized");
+        }
+    }
+
+
+    public void startGame(View view) {
+        showButtons(true);
+        connectToMqttBroker();
     }
 
     public void opponentTurn(View view) {
@@ -93,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
         buttons[1][2] = findViewById(R.id.button12);
         buttons[2][2] = findViewById(R.id.button22);
         controlButtons(false);
+        showButtons(false);
 
     }
     public void onCellClick(View view) {

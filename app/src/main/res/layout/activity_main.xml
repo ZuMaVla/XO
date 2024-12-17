@@ -5,8 +5,8 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
-    android:backgroundTint="@null"
+    android:background="@null"
+    android:backgroundTint="@color/white"
     android:visibility="visible"
     tools:context=".MainActivity"
     tools:layout_editor_absoluteX="0dp"
@@ -27,91 +27,91 @@
     <Button
         android:id="@+id/button10"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="100dp"
-        android:layout_marginTop="00dp" />
+        android:layout_marginTop="00dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button20"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="200dp"
-        android:layout_marginTop="00dp" />
+        android:layout_marginTop="00dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
 
     <Button
         android:id="@+id/button01"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="00dp"
-        android:layout_marginTop="100dp" />
+        android:layout_marginTop="100dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button11"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="100dp"
-        android:layout_marginTop="100dp" />
+        android:layout_marginTop="100dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button21"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="200dp"
-        android:layout_marginTop="100dp" />
+        android:layout_marginTop="100dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button02"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="000dp"
-        android:layout_marginTop="200dp" />
+        android:layout_marginTop="200dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button12"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="100dp"
-        android:layout_marginTop="200dp" />
+        android:layout_marginTop="200dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button22"
         style="@style/MyButtonStyle"
-        app:cornerRadius="5dp"
-        android:onClick="onCellClick"
-        android:text="\?"
-        app:layout_constraintStart_toStartOf="@id/button00"
-        app:layout_constraintTop_toTopOf="@id/button00"
         android:layout_marginStart="200dp"
-        android:layout_marginTop="200dp" />
+        android:layout_marginTop="200dp"
+        android:onClick="onCellClick"
+        android:text="\u003F"
+        app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
         android:id="@+id/button"
@@ -126,6 +126,30 @@
         android:onClick="opponentTurn"
         android:text="Your opponent's turn..."
         app:cornerRadius="5dp"
+        app:layout_constraintStart_toStartOf="@id/button00"
+        app:layout_constraintTop_toTopOf="@id/button00" />
+
+    <Button
+        android:id="@+id/buttonStart"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginStart="100dp"
+        android:layout_marginTop="350dp"
+        android:background="@null"
+        android:backgroundTint="#148CBD"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        android:onClick="startGame"
+        android:paddingLeft="5dp"
+        android:paddingRight="5dp"
+        android:text="START"
+        android:textAlignment="center"
+        android:textAllCaps="true"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        android:textSize="20sp"
+        android:textStyle="bold"
         app:layout_constraintStart_toStartOf="@id/button00"
         app:layout_constraintTop_toTopOf="@id/button00" />
 
