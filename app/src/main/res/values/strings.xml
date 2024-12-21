@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">cross_zero</string>
+    <string name="resign">Resign</string>
+    <string name="your_turn">Your turn!</string>
+    <string name="your_opponent_s_turn">Your opponent\'s turn...</string>
+    <string name="start">start</string>
 </resources>

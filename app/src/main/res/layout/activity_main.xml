@@ -144,7 +144,7 @@
         android:onClick="startGame"
         android:paddingLeft="5dp"
         android:paddingRight="5dp"
-        android:text="START"
+        android:text="start"
         android:textAlignment="center"
         android:textAllCaps="true"
         android:textAppearance="@style/TextAppearance.AppCompat.Large"
