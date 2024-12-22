@@ -15,11 +15,13 @@ import android.widget.Toast;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 import android.util.Log;
 import android.content.DialogInterface;
 import androidx.appcompat.app.AlertDialog;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import android.os.Handler;
+import java.net.InetAddress;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -104,48 +106,69 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void connectToMqttBroker() {
-        try {
-            if (mqttClient == null) {
-                // Create a new client if it doesn't exist already
-                mqttClient = new MqttClient("tcp://broker.hivemq.com:1883", MqttClient.generateClientId(), null);
+        new Thread(() -> {              // Initialising Mosquito in a separate thread to avoid lags
+            try {
+                if (mqttClient == null) {
+                    mqttClient = new MqttClient("tcp://192.168.0.55:1883", MqttClient.generateClientId(), null);
+                }
+
+                if (!mqttClient.isConnected()) {
+                    MqttConnectOptions options = new MqttConnectOptions();
+                    options.setCleanSession(true);
+                    mqttClient.connect(options);
+                    Log.d("MQTT", "(Re)connected to broker");
+                } else {
+                    Log.d("MQTT", "Already connected to the broker");
+                }
+
+                // Subscribe to a topic and handle incoming messages
+                mqttClient.subscribe("XO", 0, (topic, message) -> {
+                    String receivedMessage = new String(message.getPayload());
+                    interpretMessage(topic, receivedMessage);
+                });
+
+                Log.d("MQTT", "Subscribed to topic 'XO'");
+
+            } catch (MqttException e) {
+                e.printStackTrace();
+                Log.e("MQTT", "Error while connecting or subscribing");
             }
-
-
-            if (!mqttClient.isConnected()) {        // Connect only if not already connected
-                MqttConnectOptions options = new MqttConnectOptions();
-                options.setCleanSession(true);
-                mqttClient.connect(options);
-                Log.d("MQTT", "(Re)connected to broker");
-            } else {
-                Log.d("MQTT", "Already connected to the broker");
-            }
-
-            // Subscribe to a topic
-            mqttClient.subscribe("test/topic", 0, (topic, message) -> Log.d("MQTT", "Message received: " + new String(message.getPayload())));
-        } catch (MqttException e) {
-            e.printStackTrace();
-            Log.e("MQTT", "Error while connecting or subscribing");
-        }
+        }).start();
     }
 
 
-
     public void disconnectFromMqttBroker() {
-        if (mqttClient != null && mqttClient.isConnected()) {
-            try {
-                // Disconnect from the broker
-                mqttClient.disconnect();
-                Log.d("MQTT", "Disconnected from the broker");
+        new Thread(() -> {
+            if (mqttClient != null && mqttClient.isConnected()) {
+                try {
+                    // Disconnect from the broker
+                    mqttClient.disconnect();
+                    Log.d("MQTT", "Disconnected from the broker");
 
-                // Optionally, close the client
-                mqttClient.close();
-                Log.d("MQTT", "MQTT client closed");
+                    // Close the client
+                    mqttClient.close();
+                    Log.d("MQTT", "MQTT client closed");
 
-            } catch (MqttException e) {
-                Log.e("MQTT", "Error while disconnecting: " + e.getMessage());
+                } catch (MqttException e) {
+                    Log.e("MQTT", "Error while disconnecting: " + e.getMessage());
+                }
+            } else {
+                Log.d("MQTT", "MQTT client is already disconnected or not initialized");
             }
-        } else {
-            Log.d("MQTT", "MQTT client is already disconnected or not initialized");
+        }).start();
+    }
+
+    private void interpretMessage(String topic, String message) {       // MQTT message interpretation
+        if ("XO".equals(topic)) {
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Message received:" + message, Toast.LENGTH_LONG).show();
+            });
+        }
+        else {
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Wrong topic!", Toast.LENGTH_SHORT).show();
+            });
+
         }
     }
 
@@ -223,6 +246,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
         }
+        disconnectFromMqttBroker();
 
 
     }
@@ -277,6 +301,12 @@ public class MainActivity extends AppCompatActivity {
             Button button2 = findViewById(R.id.button); // Find the button by its ID
             button2.setText(R.string.your_opponent_s_turn); // Update the button's text
             String buttonIdName = getResources().getResourceEntryName(view.getId());
+            MqttMessage message = new MqttMessage(buttonIdName.getBytes());
+            try {
+                mqttClient.publish("XO", message);
+            } catch (MqttException e) {
+                throw new RuntimeException(e);
+            }
             int i = Character.getNumericValue(buttonIdName.charAt(6));      // x coord
             int j = Character.getNumericValue(buttonIdName.charAt(7));      // y coord
             if (mySign.equals("X")) {

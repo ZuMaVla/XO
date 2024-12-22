@@ -41,5 +41,4 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     implementation (libs.paho.mqtt)         // MQTT library
     implementation (libs.paho.mqtt.android) // Android service for MQTT
-
 }
