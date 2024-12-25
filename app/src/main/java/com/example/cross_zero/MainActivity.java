@@ -17,15 +17,16 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import android.util.Log;
-import android.content.DialogInterface;
+
 import androidx.appcompat.app.AlertDialog;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import android.os.Handler;
 import java.net.InetAddress;
-
+import java.net.UnknownHostException;
 
 public class MainActivity extends AppCompatActivity {
     ConstraintLayout rootLayout;
+    String serverIP;
     String mySign;
     Boolean Play;
     Button[][] buttons = new Button[3][3];
@@ -33,6 +34,20 @@ public class MainActivity extends AppCompatActivity {
     String[][] board = new String[3][3];
 
     private MqttClient mqttClient;
+    private String findServerIP() {
+
+        String output;
+        try {
+            InetAddress address;
+            address = InetAddress.getByName(getString(R.string.xo_server_local));
+            output = address.getHostAddress();
+            Log.d("HostnameResolution", "IP Address: " + serverIP);
+        } catch (UnknownHostException e) {
+            Log.e("HostnameResolution", "Failed to find game server", e);
+            output = "";
+        }
+        return output;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +73,23 @@ public class MainActivity extends AppCompatActivity {
         buttons[2][2] = findViewById(R.id.button22);
         controlButtons(false);
         showButtons(false);
+        // Start the background task for resolving the IP address
+        new Thread(() -> {
+            serverIP = findServerIP();  // Update the class-level serverIP
+
+            // After the background task completes, update the UI on the main thread
+            runOnUiThread(() -> {
+                if (!serverIP.isEmpty()) {
+                    // If IP address is found, enable the button and show a toast
+                    Button startButton = findViewById(R.id.buttonStart);
+                    startButton.setEnabled(true);
+                    Toast.makeText(MainActivity.this, "Game server found; IP: " + serverIP, Toast.LENGTH_LONG).show();
+                } else {
+                    // If IP address resolution failed, show a failure message
+                    Toast.makeText(MainActivity.this, "Failed to find the game server", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }).start();
 
     }
 
@@ -95,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showButtons(Boolean state) {
-        Button adHocButton = findViewById(R.id.button);
+        Button adHocButton = findViewById(R.id.buttonInfo);
         adHocButton.setVisibility(state ? View.VISIBLE : View.INVISIBLE);
 
         for (Button[] buttonz : buttons) {
@@ -109,30 +141,36 @@ public class MainActivity extends AppCompatActivity {
         new Thread(() -> {              // Initialising Mosquito in a separate thread to avoid lags
             try {
                 if (mqttClient == null) {
-                    mqttClient = new MqttClient("tcp://192.168.0.55:1883", MqttClient.generateClientId(), null);
+                    mqttClient = new MqttClient("tcp://" + serverIP + ":1883", MqttClient.generateClientId(), null);
                 }
 
                 if (!mqttClient.isConnected()) {
                     MqttConnectOptions options = new MqttConnectOptions();
                     options.setCleanSession(true);
                     mqttClient.connect(options);
-                    Log.d("MQTT", "(Re)connected to broker");
+                    Log.d("MQTT", "(Re)connected to broker: tcp://" + serverIP + ":1883");
                 } else {
                     Log.d("MQTT", "Already connected to the broker");
                 }
-
+                String playerTopic = "player" + mySign;
+                runOnUiThread(() -> Toast.makeText(this, "Subscribing to: " + playerTopic, Toast.LENGTH_SHORT).show());
                 // Subscribe to a topic and handle incoming messages
-                mqttClient.subscribe("XO", 0, (topic, message) -> {
+                mqttClient.subscribe(playerTopic, 0, (topic, message) -> {
                     String receivedMessage = new String(message.getPayload());
-                    interpretMessage(topic, receivedMessage);
+                    Log.d("MQTT", "Message received: " + receivedMessage);
+                    runOnUiThread(() -> interpretMessage(topic, receivedMessage));
                 });
 
-                Log.d("MQTT", "Subscribed to topic 'XO'");
+                Log.d("MQTT", "Listening to game server..." + playerTopic);
 
             } catch (MqttException e) {
                 e.printStackTrace();
                 Log.e("MQTT", "Error while connecting or subscribing");
             }
+            runOnUiThread(() -> {
+                Button myButton = findViewById(R.id.buttonInfo);
+                myButton.performClick();
+            });
         }).start();
     }
 
@@ -159,17 +197,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void interpretMessage(String topic, String message) {       // MQTT message interpretation
-        if ("XO".equals(topic)) {
-            runOnUiThread(() -> {
-                Toast.makeText(this, "Message received:" + message, Toast.LENGTH_LONG).show();
-            });
-        }
-        else {
-            runOnUiThread(() -> {
-                Toast.makeText(this, "Wrong topic!", Toast.LENGTH_SHORT).show();
-            });
+        Toast.makeText(this, "Message received: " + message, Toast.LENGTH_LONG).show();
 
-        }
     }
 
     public void initGame() {
@@ -213,7 +242,8 @@ public class MainActivity extends AppCompatActivity {
 
         endGame("draw", cell1, cell2, cell3);
         return true;
-    };
+    }
+
     public void endGame(String outcome, int[] cell1, int[] cell2, int[] cell3) {
         rootLayout.setEnabled(false);
         new Handler().postDelayed(() -> {
@@ -260,10 +290,9 @@ public class MainActivity extends AppCompatActivity {
     public void opponentTurn(View view) {
         Button button = (Button) view;
         button.setText(R.string.your_turn);
-        button.setOnLongClickListener(this::initEndGame);
+        button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.pale_green));
         redrawCells(buttons, board);
-        controlButtons(true);  // Enable the button
-
+        controlButtons(true);  // Enables board for move
     }
 
     public void redrawCells(Button[][] _buttons, String[][] _board) {
@@ -292,20 +321,23 @@ public class MainActivity extends AppCompatActivity {
 
         // Check if the cell is empty
         if (buttonText.equals("?")) {
-            // Change the background color of the cell
             button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.red));
 
             // Set the cell's text to "X"
             button.setText(mySign);
             controlButtons(false);
-            Button button2 = findViewById(R.id.button); // Find the button by its ID
+            Button button2 = findViewById(R.id.buttonInfo); // Find the button by its ID
             button2.setText(R.string.your_opponent_s_turn); // Update the button's text
+            button2.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.pale_red));
             String buttonIdName = getResources().getResourceEntryName(view.getId());
-            MqttMessage message = new MqttMessage(buttonIdName.getBytes());
+            String topic = getString(R.string.serverXO); // Get the topic name from resources
+            String data = mySign + " " + buttonIdName;
+            MqttMessage message = new MqttMessage(data.getBytes());
             try {
-                mqttClient.publish("XO", message);
+                mqttClient.publish(topic, message); // Publish the message
+                Log.d("MQTT", "Message published: " + data);
             } catch (MqttException e) {
-                throw new RuntimeException(e);
+                Log.e("MQTT", "Failed to publish message", e); // Log the error
             }
             int i = Character.getNumericValue(buttonIdName.charAt(6));      // x coord
             int j = Character.getNumericValue(buttonIdName.charAt(7));      // y coord
@@ -315,7 +347,6 @@ public class MainActivity extends AppCompatActivity {
             else {
                 board[i][j] = "0";
             }
-            //Toast.makeText(this, board[0][0]+board[1][1]+board[2][2], Toast.LENGTH_SHORT).show();;
         }
         else {
             button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.black));

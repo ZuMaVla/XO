@@ -114,17 +114,19 @@
         app:layout_constraintTop_toTopOf="@id/button00" />
 
     <Button
-        android:id="@+id/button"
+        android:id="@+id/buttonInfo"
         style="@style/Widget.AppCompat.Button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="-100dp"
         android:background="@null"
-        android:backgroundTint="#7CB342"
+        android:backgroundTint="@color/pale_red"
+        android:textColor="@color/white"
         android:minWidth="300dip"
         android:minHeight="50dip"
+        android:enabled="false"
         android:onClick="opponentTurn"
-        android:text="Your opponent's turn..."
+        android:text="Seeking opponent..."
         app:cornerRadius="5dp"
         app:layout_constraintStart_toStartOf="@id/button00"
         app:layout_constraintTop_toTopOf="@id/button00" />
@@ -150,6 +152,7 @@
         android:textAppearance="@style/TextAppearance.AppCompat.Large"
         android:textSize="20sp"
         android:textStyle="bold"
+        android:enabled="false"
         app:layout_constraintStart_toStartOf="@id/button00"
         app:layout_constraintTop_toTopOf="@id/button00" />
 

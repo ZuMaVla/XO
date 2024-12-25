@@ -4,4 +4,6 @@
     <string name="your_turn">Your turn!</string>
     <string name="your_opponent_s_turn">Your opponent\'s turn...</string>
     <string name="start">start</string>
+    <string name="serverXO">XO/server</string>
+    <string name="xo_server_local">xoserver.duckdns.org</string>
 </resources>
