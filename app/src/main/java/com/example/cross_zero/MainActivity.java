@@ -2,7 +2,6 @@ package com.example.cross_zero;
 
 import android.content.res.ColorStateList;
 import android.os.Bundle;
-
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -17,18 +16,19 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import android.util.Log;
-
 import androidx.appcompat.app.AlertDialog;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import android.os.Handler;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     ConstraintLayout rootLayout;
     String serverIP;
     String mySign;
-    Boolean Play;
+    Boolean joinRequested = false;
+    String temporaryID;
     Button[][] cells = new Button[3][3];
 
     int[][] board = new int[3][3];
@@ -59,9 +59,9 @@ public class MainActivity extends AppCompatActivity {
         cells[2][2] = findViewById(R.id.button22);
         controlButtons(false);
         showButtons(false);
-        // Start the background task for resolving the IP address
+        // Start the background task for resolving the IP address from hostname
         new Thread(() -> {
-            serverIP = findServerIP();      // Update the class-level serverIP
+            serverIP = findServerIP();      // runs the subroutine to resolve IP address
 
             // After the background task completes, update the UI on the main thread
             runOnUiThread(() -> {
@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
         String output;
         try {
             InetAddress address;
-            address = InetAddress.getByName(getString(R.string.xo_server_local));
+            address = InetAddress.getByName(getString(R.string.xo_server));
             output = address.getHostAddress();
             Log.d("HostnameResolution", "IP Address: " + serverIP);
         } catch (UnknownHostException e) {
@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-        // Set the title and message for the dialog
+        // Set the title and message for the dialog to be displayed
         builder.setTitle("Resignation confirmation:")
             .setMessage("Do you want to resign?")
 
@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
     public void controlButtons(Boolean state) {
         for (Button[] buttonz : cells) {
             for (Button button : buttonz) {
-                button.setEnabled(state);  // Enable the button
+                button.setEnabled(state);  // Enable or disable the button
             }
         }
     }
@@ -137,17 +137,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void subscribeToTopic(String topic) {
-        new Thread(() -> {              // Initialising Mosquito in a separate thread to avoid lags
+        new Thread(() -> {              // Initialising Mosquitto in a separate thread to avoid lags
             try {
                 // Subscribe to a topic and handle incoming messages
-                mqttClient.subscribe(topic, 0, (_topic, message) -> {
+                mqttClient.subscribe(topic, 2, (_topic, message) -> {
                     String receivedMessage = new String(message.getPayload());
                     Log.d("MQTT", "Message received: " + receivedMessage);
                     runOnUiThread(() -> interpretMessage(_topic, receivedMessage));
                 });
-
                 Log.d("MQTT", "Listening to game server..." + serverIP);
-
             } catch (MqttException e) {
                 e.printStackTrace();
                 Log.e("MQTT", "Error while subscribing");
@@ -160,16 +158,14 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }).start();
-
     }
 
     private void connectToMqttBroker() {
-        new Thread(() -> {              // Initialising Mosquito in a separate thread to avoid lags
+        new Thread(() -> {              // Initialising Mosquitto in a separate thread to avoid lags
             try {
                 if (mqttClient == null) {
                     mqttClient = new MqttClient("tcp://" + serverIP + ":1883", MqttClient.generateClientId(), null);
                 }
-
                 if (!mqttClient.isConnected()) {
                     MqttConnectOptions options = new MqttConnectOptions();
                     options.setCleanSession(true);
@@ -178,7 +174,6 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     Log.d("MQTT", "Already connected to the broker");
                 }
-
                 runOnUiThread(() -> Toast.makeText(this, "Connected to: " + serverIP, Toast.LENGTH_SHORT).show());
             } catch (MqttException e) {
                 e.printStackTrace();
@@ -212,22 +207,30 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    private void interpretMessage(String topic, String message) {       // MQTT message interpretation
-        if (topic.equals("XO")) {
+    // MQTT message interpretation
+    private void interpretMessage(String topic, String message) {
+        // messages before game started
+        // temporary ID is used to identify invitation to join game (that it belongs to the requester)
+        if (topic.equals("XO") && joinRequested && temporaryID.equals(message.substring(2))) {
             String sign = String.valueOf(message.charAt(0));
             int turn = Integer.parseInt(String.valueOf(message.charAt(1)));
             initGame(sign, turn);
         }
+        // messages after game started
         else {
             Button button = findViewById(R.id.buttonInfo);
             if (message.startsWith("turn")) {
                 int i = Character.getNumericValue(message.charAt(4));
                 int j = Character.getNumericValue(message.charAt(5));
+                int[] opponentTurn = new int[2];
+                opponentTurn[0] = i;
+                opponentTurn[1] = j;
                 if (mySign.equals("X")) {
                     board[i][j] = -1;
                 } else if (mySign.equals("O")){
                     board[i][j] = 1;
                 }
+                redrawCells(cells, board, opponentTurn);
                 button.performClick();
             } else if (message.endsWith("found")) {
                 button.setText(R.string.your_opponent_s_turn); // Update the button's text
@@ -237,24 +240,23 @@ public class MainActivity extends AppCompatActivity {
                        message.startsWith("___draw")) {
                 unsubscribeFromTopic("player" + mySign);
                 if (message.length() == 7) {
-                    endGame(message.substring(0, 7), false, new int[2], new int[2], new int[2]);
-                } else if (message.length() == 13) {
-                    int[] cell1 = {Character.getNumericValue(message.charAt(7)),
-                            Character.getNumericValue(message.charAt(8))};
-                    int[] cell2 = {Character.getNumericValue(message.charAt(9)),
-                            Character.getNumericValue(message.charAt(10))};
-                    int[] cell3 = {Character.getNumericValue(message.charAt(11)),
-                            Character.getNumericValue(message.charAt(12))};
+                    endGame(message.substring(0, 7), false, null, null, null);
+                } else if (message.length() >= 10) {
+                    int[] cell1 = new int[2];
+                    cell1[0] = Character.getNumericValue(message.charAt(7));
+                    cell1[1] = Character.getNumericValue(message.charAt(8));
+                    int[] cell2 = new int[2];
+                    cell2[0] = Character.getNumericValue(message.charAt(9));
+                    cell2[1] = Character.getNumericValue(message.charAt(10));
+                    int[] cell3 = new int[2];
+                    cell3[0] = Character.getNumericValue(message.charAt(11));
+                    cell3[1] = Character.getNumericValue(message.charAt(12));
                     endGame(message.substring(0, 7), true, cell1, cell2, cell3);
                 }
             } else {
                 System.out.println("No match");
             }
-
         }
-
-//        Toast.makeText(this, "Message received: " + message, Toast.LENGTH_LONG).show();
-
     }
 
     public void initGame(String assignedSign, int isYourTurn) {
@@ -270,7 +272,7 @@ public class MainActivity extends AppCompatActivity {
         board[1][2] = 0;
         board[2][2] = 0;
 
-        redrawCells(cells, board);
+        redrawCells(cells, board, null);
 
         showButtons(true);
 
@@ -292,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void unsubscribeFromTopic(String topicToUnsubscribe) {
         try {
-            // Ensure the MQTT client is connected before unsubscribing
+            // Ensure the MQTT client is connected before attempting to unsubscribe
             if (mqttClient != null && mqttClient.isConnected()) {
                 mqttClient.unsubscribe(topicToUnsubscribe);
                 System.out.println("Successfully unsubscribed from topic: " + topicToUnsubscribe);
@@ -312,9 +314,12 @@ public class MainActivity extends AppCompatActivity {
             subscribeToTopic("XO");
         };
         if (button.getText().equals(getResources().getString(R.string.start))) {
-            sendMessage("XO/server", "ready");
+            temporaryID = UUID.randomUUID().toString();
+            button.setText(R.string.starting);
+            sendMessage("XO/server", "ready" + temporaryID);
+            joinRequested = true;
         }
-    }
+    } // used as onClick subroutine for start button
 
     private String extractOutcome(String outcome) {
         switch (outcome) {
@@ -329,12 +334,28 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void endGame(String outcome, boolean flag, int[] cell1, int[] cell2, int[] cell3) {
-        if (flag) {
+    public void endGame(String outcome, boolean _flag, int[] cell1, int[] cell2, int[] cell3) {
+        if (_flag) {                // case of victory or defeat except in case of resign
             rootLayout.setEnabled(false);
             new Handler().postDelayed(() -> {
                 rootLayout.setEnabled(true);
+                // Display outcome message
+                Toast.makeText(MainActivity.this, extractOutcome(outcome), Toast.LENGTH_SHORT).show();
+
+                // Reset the game state
+                mySign = null;
+                joinRequested = false;
+                Button button = findViewById(R.id.buttonStart);
+                button.setText(R.string.start);
+                Button button2 = findViewById(R.id.buttonInfo);
+                button2.setText(R.string.seeking_opponent);
+                button2.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.light_grey));
+                showButtons(false);
+                controlButtons(false);
+                subscribeToTopic("XO");
+
             }, 3100);
+
             int defaultColor = ContextCompat.getColor(this, R.color.light_grey);
             final int outcomeColor;
             if (outcome.equals("victory")) {
@@ -342,33 +363,47 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 outcomeColor = ContextCompat.getColor(this, R.color.red);
             }
-            for (int i = 0; i < 3; i++ ) {
+
+            // End game "animation"
+            for (int i = 0; i < 3; i++) {
+                final int delay1 = 50 + 1000 * i;
+                final int delay2 = 550 + 1000 * i;
+
+                // Set the outcome color to the cells with a delay
                 new Handler().postDelayed(() -> {
                     cells[cell1[0]][cell1[1]].setBackgroundTintList(ColorStateList.valueOf(outcomeColor));
                     cells[cell2[0]][cell2[1]].setBackgroundTintList(ColorStateList.valueOf(outcomeColor));
                     cells[cell3[0]][cell3[1]].setBackgroundTintList(ColorStateList.valueOf(outcomeColor));
-                }, 50 + 1000*i);
+                }, delay1);
+
+                // Reset the default color with a delay
                 new Handler().postDelayed(() -> {
                     cells[cell1[0]][cell1[1]].setBackgroundTintList(ColorStateList.valueOf(defaultColor));
                     cells[cell2[0]][cell2[1]].setBackgroundTintList(ColorStateList.valueOf(defaultColor));
                     cells[cell3[0]][cell3[1]].setBackgroundTintList(ColorStateList.valueOf(defaultColor));
-                }, 550 + 1000*i);
+                }, delay2);
             }
-        } else {
+        } else {        // victory or defeat due to a resignation
             if (outcome.equals("victory")) {
                 Toast.makeText(MainActivity.this, "Your opponent has resigned", Toast.LENGTH_SHORT).show();
             }
-        };
-        Toast.makeText(MainActivity.this, extractOutcome(outcome), Toast.LENGTH_SHORT).show();
-        mySign = null;
-        Button button = findViewById(R.id.buttonStart);
-        button.setText(R.string.start);
-        showButtons(false);
-        subscribeToTopic("XO");
+            // Display outcome message
+            Toast.makeText(MainActivity.this, extractOutcome(outcome), Toast.LENGTH_SHORT).show();
+            // Reset the game state
+            mySign = null;
+            joinRequested = false;
+            Button button = findViewById(R.id.buttonStart);
+            button.setText(R.string.start);
+            Button button2 = findViewById(R.id.buttonInfo);
+            button2.setText(R.string.seeking_opponent);
+            button2.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.light_grey));
+            showButtons(false);
+            controlButtons(false);
+            subscribeToTopic("XO");
+        }
     }
 
     public boolean resignGame(View view) {             // Returns boolean to handle long tap event
-
         showYesNoResign();
         return true; // Allow further processing
     }
@@ -377,11 +412,10 @@ public class MainActivity extends AppCompatActivity {
         Button button = (Button) view;
         button.setText(R.string.your_turn);
         button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.pale_green));
-        redrawCells(cells, board);
-        controlButtons(true);  // Enables board for move
+        controlButtons(true);  // Enables board for next turn
     }
 
-    public void redrawCells(Button[][] _buttons, int[][] _board) {
+    public void redrawCells(Button[][] _buttons, int[][] _board, int[] lastTurn) {
         for (int i = 0; i < _buttons.length; i++) {
             for (int j = 0; j < _buttons[i].length; j++) {
                 int cell = _board[i][j];
@@ -398,6 +432,9 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+        if (lastTurn != null) {
+            _buttons[lastTurn[0]][lastTurn[1]].setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.pale_red));
+        }
     }
 
     private void sendMessage(String topic, String data) {
@@ -410,14 +447,14 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void onCellClick(View view) {
-        // Cast the view to a Button
+    public void onCellClick(View view) {   // onClick event subroutine for board cell buttons
+
         Button button = (Button) view;
         String buttonText = button.getText().toString(); // Get the button's text
 
         // Check if the cell is empty
         if (buttonText.equals("?")) {
-            button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.red));
+            button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.pale_green));
 
             // Set the cell's text to "X"
             button.setText(mySign);
@@ -427,7 +464,8 @@ public class MainActivity extends AppCompatActivity {
             button2.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.pale_red));
             String buttonIdName = getResources().getResourceEntryName(view.getId());
             String topic = getString(R.string.serverXO); // Get the topic name from resources
-            String data = mySign + " " + buttonIdName;
+            String data = mySign + " " + buttonIdName.substring(6);
+            sendMessage(topic, data);
             int i = Character.getNumericValue(buttonIdName.charAt(6));      // x coord
             int j = Character.getNumericValue(buttonIdName.charAt(7));      // y coord
             if (mySign.equals("X")) {
@@ -436,11 +474,9 @@ public class MainActivity extends AppCompatActivity {
             else if (mySign.equals("O")){
                 board[i][j] = -1;
             }
-            sendMessage(topic, data);
         }
         else {
             button.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.black));
         }
     }
-
 }
